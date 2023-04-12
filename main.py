@@ -1,8 +1,11 @@
+import sys
 import datetime
 import aiohttp
 import asyncio
-import xml.etree.ElementTree as ET
+
 from collections import defaultdict
+
+import xml.etree.ElementTree as ET
 
 
 URL = 'http://www.cbr.ru/scripts/XML_daily_eng.asp?date_req={date}'
@@ -25,9 +28,13 @@ async def fetch_currency(urls):
 
 
 async def fetch(session, url):
-    async with session.get(url) as resp:
-        assert resp.status == 200
-        return await resp.text()
+    try:
+        async with session.get(url) as resp:
+            assert resp.status == 200
+            return await resp.text()
+    except aiohttp.ClientConnectorError as e:
+        print('Connection Error', str(e))
+        sys.exit(1)
 
 
 def format_urls(date_list):
