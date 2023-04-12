@@ -15,8 +15,7 @@
 
 К файлу с программой, нужно прикрепить инструкцию по запуску.
 
-## Сборка docker образа
-Запуск локально:
+## Запуск локально:
 - Создать виртуальное окружение:
 ```
 python3 -m venv venv 
@@ -36,5 +35,5 @@ python3 main.py
 
 ## Запуск из готового docker образа
 ```bash
-docker run --rm  kratorr/procontext 
+docker run --rm kratorr/procontext 
 ```
