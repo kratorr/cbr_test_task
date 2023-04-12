@@ -45,7 +45,8 @@ def parse_xml(xml_string):
         char_code = child.find('CharCode').text
         value = child.find('Value').text.replace(',', '.')
         name = child.find('Name').text
-        results.append((char_code, name, date, float(value)))
+        nominal = child.find('Nominal').text
+        results.append((char_code, name, date, float(value), int(nominal)))
     return results
 
 
@@ -64,12 +65,12 @@ def get_avg_rouble_currencies(currencies_dict):
         currencies_dict.keys(), key=lambda key: key[0]
     )
     avg_rouble_currencies = []
-    for currency_key in sorted_currency_keys:
-
+    for currency in sorted_currency_keys:
+        days = len(currencies_dict[currency])
         avg_rouble_currencies.append(
             [
-                currency_key[1],
-            1 / (sum(item[1] for item in currencies_dict[currency_key]) / DAYS)
+                currency[1],
+                1 / (sum(item[1] for item in currencies_dict[currency]) / days)
             ]
         )
     return avg_rouble_currencies
@@ -81,7 +82,8 @@ def parse_currencies(currencies_raw_data: list) -> tuple[set, dict]:
     for currency_raw in currencies_raw_data:
         currency_values = parse_xml(currency_raw)
         for item in currency_values:
-            code, name, date, value = item
+            code, name, date, value, nominal = item
+            value = value / nominal  # приводим к общему номиналу
             currencies_set.add((code, name, date, value))
             currencies_dict[(code, name)].append((date, value))
 
@@ -95,17 +97,16 @@ def main():
     currencies_raw_data = asyncio.run(fetch_currency(urls))
 
     currencies_set, currencies_dict = parse_currencies(currencies_raw_data)
-
     max_currency_tuple = get_max_currency(currencies_set)
     min_currency_tuple = get_min_currency(currencies_set)
 
     print(
         f'Минимальный курс валюты:\n'
-        f'\t{min_currency_tuple[1]} {min_currency_tuple[3]} '
+        f'\t{min_currency_tuple[1]} {min_currency_tuple[3]:.4f} '
         f'{min_currency_tuple[2]}\n'
         f'Максимальный курс валюты:\n'
-        f'\t{max_currency_tuple[1]} {max_currency_tuple[3]} '
-        f'{max_currency_tuple[2]}\n'
+        f'\t{max_currency_tuple[1]} {max_currency_tuple[3]:.4f} '
+        f'{max_currency_tuple[2]}'
     )
 
     avg_rouble_currencies = get_avg_rouble_currencies(currencies_dict)
