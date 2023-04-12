@@ -1,12 +1,8 @@
 import datetime
 import aiohttp
 import asyncio
-import logging
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-
-#TODO sdelat' logger dla example
-logging  = logging.getLogger()
 
 
 URL = 'http://www.cbr.ru/scripts/XML_daily_eng.asp?date_req={date}'
@@ -53,62 +49,69 @@ def parse_xml(xml_string):
     return results
 
 
-def parse_currencies(currencies_raw_data):
-    currencies_dict = defaultdict(list)
+def get_min_currency(currencies_set):
+    min_currency = min(currencies_set, key=lambda i: i[3])
+    return min_currency
 
+
+def get_max_currency(currencies_set):
+    max_currency = max(currencies_set, key=lambda i: i[3])
+    return max_currency
+
+
+def get_avg_rouble_currencies(currencies_dict):
+    sorted_currency_keys = sorted(
+        currencies_dict.keys(), key=lambda key: key[0]
+    )
+    avg_rouble_currencies = []
+    for currency_key in sorted_currency_keys:
+
+        avg_rouble_currencies.append(
+            [
+                currency_key[1],
+            1 / (sum(item[1] for item in currencies_dict[currency_key]) / DAYS)
+            ]
+        )
+    return avg_rouble_currencies
+
+
+def parse_currencies(currencies_raw_data: list) -> tuple[set, dict]:
+    currencies_dict = defaultdict(list)
+    currencies_set = set()
     for currency_raw in currencies_raw_data:
         currency_values = parse_xml(currency_raw)
         for item in currency_values:
             code, name, date, value = item
+            currencies_set.add((code, name, date, value))
             currencies_dict[(code, name)].append((date, value))
 
-    return currencies_dict
-
-
-def get_min_currency(key, currencies_dict):
-    min_currency = min(currencies_dict[key], key=lambda i: i[1])
-    return min_currency
-
-
-def get_max_currency(key, currencies_dict):
-    max_currency = max(currencies_dict[key], key=lambda i: i[1])
-    return max_currency
-
-
-def get_avg_rouble_currency(currencies_dict):
-    denominator_avg = len(currencies_dict) * DAYS
-
-    sum_of_all_currencies = 0
-
-    for currenry_list in currencies_dict.values():
-        sum_of_all_currencies += sum(item[1] for item in currenry_list)
-
-    return sum_of_all_currencies / denominator_avg
+    return currencies_set, currencies_dict
 
 
 def main():
-    date_list = get_date_range(90)
+    date_list = get_date_range(DAYS)
     urls = format_urls(date_list)
 
     currencies_raw_data = asyncio.run(fetch_currency(urls))
 
-    currencies_dict = parse_currencies(currencies_raw_data)
-    sorted_currency_keys = sorted(
-        currencies_dict.keys(), key=lambda key: key[0]
-    )
-    for currency_key in sorted_currency_keys:
-        max_currency_tuple = get_max_currency(currency_key, currencies_dict)
-        min_currency_tuple = get_min_currency(currency_key, currencies_dict)
-        print(
-            f'{currency_key[1]}:\n'
-            f'\tMin: {min_currency_tuple[1]} {min_currency_tuple[0]}\n'
-            f'\tMax: {max_currency_tuple[1]} {max_currency_tuple[0]}'
-        )
-    print('')
-    avg_rouble_currency = get_avg_rouble_currency(currencies_dict)
+    currencies_set, currencies_dict = parse_currencies(currencies_raw_data)
+
+    max_currency_tuple = get_max_currency(currencies_set)
+    min_currency_tuple = get_min_currency(currencies_set)
+
     print(
-        f'Average rouble currency: {avg_rouble_currency}'
+        f'Минимальный курс валюты:\n'
+        f'\t{min_currency_tuple[1]} {min_currency_tuple[3]} '
+        f'{min_currency_tuple[2]}\n'
+        f'Максимальный курс валюты:\n'
+        f'\t{max_currency_tuple[1]} {max_currency_tuple[3]} '
+        f'{max_currency_tuple[2]}\n'
     )
+
+    avg_rouble_currencies = get_avg_rouble_currencies(currencies_dict)
+    print('Среднее значение рубля по валютам: ')
+    for avg_currency in avg_rouble_currencies:
+        print(f'\t{avg_currency[0]}: {avg_currency[1]:.4f}')
 
 
 if __name__ == '__main__':
